@@ -1366,6 +1366,69 @@ GTEST_API_ void InitGoogleTest(int* argc, char** argv);
 // UNICODE mode.
 GTEST_API_ void InitGoogleTest(int* argc, wchar_t** argv);
 
+struct fail_t {};
+static fail_t TestFailed;
+
+template<typename T>
+class GTestFailedOr {
+public:
+    GTestFailedOr(const T& value) : user_value_(value), success_(true){}
+    GTestFailedOr() : user_value_(*reinterpret_cast<const T*>(NULL)), success_(false){}
+    GTestFailedOr(fail_t) : user_value_(*reinterpret_cast<const T*>(NULL)), success_(false){}
+    bool isOk() const { return success_; }
+    operator const T&() const { return user_value_; }
+private:
+    T user_value_;
+    const bool success_;
+};
+
+namespace internal {
+
+template<typename T>
+bool IsReturnStateSaneHelper(const T&) {
+    return true;
+}
+template<typename T>
+bool IsReturnStateSaneHelper(const GTestFailedOr<T>& v) {
+    return v.isOk();
+}
+
+template<typename T1>
+bool IsReturnStateSane(const T1& v1) {
+    return IsReturnStateSaneHelper(v1);
+}
+template<typename T1, typename T2>
+bool IsReturnStateSane(const T1& v1, const T2& v2) {
+    return IsReturnStateSaneHelper(v1) &&
+            IsReturnStateSaneHelper(v2);
+}
+template<typename T1, typename T2, typename T3>
+bool IsReturnStateSane(const T1& v1, const T2& v2, const T3& v3) {
+    return IsReturnStateSaneHelper(v1) &&
+            IsReturnStateSaneHelper(v2) &&
+            IsReturnStateSaneHelper(v3);
+}
+template<typename T1, typename T2, typename T3, typename T4>
+bool IsReturnStateSane(const T1& v1, const T2& v2, const T3& v3, const T4& v4) {
+    return IsReturnStateSaneHelper(v1) &&
+            IsReturnStateSaneHelper(v2) &&
+            IsReturnStateSaneHelper(v3) &&
+            IsReturnStateSaneHelper(v4);
+}
+
+template<typename T>
+const T& Unwrap(const T& v) { return v; }
+template<typename T>
+const T& Unwrap(const GTestFailedOr<T>& v) { return (const T&)v; }
+
+#define RETURN_ON_NESTED_FAILURE(...)\
+    do {\
+        if (!IsReturnStateSane(__VA_ARGS__)) {\
+            return AssertionFailure() << "Previous nested failure.";\
+        }\
+    } while(false)
+
+
 namespace internal {
 
 // Separate the error generating code from the code path to reduce the stack
