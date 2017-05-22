@@ -1019,6 +1019,10 @@ AssertionResult AssertionFailure(const Message& message) {
   return AssertionFailure() << message;
 }
 
+AssertionResult AssertionNestedFailure() {
+  return AssertionResult(false, true);
+}
+
 namespace internal {
 
 namespace edit_distance {

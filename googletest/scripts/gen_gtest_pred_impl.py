@@ -156,6 +156,8 @@ def HeaderPreamble(n):
   GTEST_AMBIGUOUS_ELSE_BLOCKER_ \\
   if (const ::testing::AssertionResult gtest_ar = (expression)) \\
     ; \\
+  else if (gtest_ar.IsNestestFailure()) \\
+    return; \\
   else \\
     on_failure(gtest_ar.failure_message())
 """ % DEFS)
@@ -210,6 +212,7 @@ def ImplementationForArity(n):
     'n' : str(n),
     'vs' : Iter(n, 'v%s', sep=', '),
     'vts' : Iter(n, '#v%s', sep=', '),
+    'uvs' : Iter(n, 'Unwrap(v%s)', sep=', '),
     'arity' : Arity(n),
     'Arity' : Title(Arity(n))
     }
@@ -236,7 +239,8 @@ AssertionResult AssertPred%(n)sHelper(const char* pred_text""" % DEFS
                                   const T%s& v%s""")
 
   impl += """) {
-  if (pred(%(vs)s)) return AssertionSuccess();
+  if (!IsReturnStateSane(%(vs)s)) return AssertionNestedFailure();
+  if (pred(%(uvs)s)) return AssertionSuccess();
 
 """ % DEFS
 

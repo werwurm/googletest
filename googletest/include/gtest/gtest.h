@@ -270,11 +270,11 @@ class GTEST_API_ AssertionResult {
   // we want AssertionResult's copy constructor to be used.
   template <typename T>
   explicit AssertionResult(
-      const T& success,
+      const T& success, const bool& nested_failure = false,
       typename internal::EnableIf<
           !internal::ImplicitlyConvertible<T, AssertionResult>::value>::type*
           /*enabler*/ = NULL)
-      : success_(success) {}
+      : success_(success), nested_failure_(nested_failure) {}
 
   GTEST_DISABLE_MSC_WARNINGS_POP_()
 
@@ -328,6 +328,7 @@ class GTEST_API_ AssertionResult {
 
   // Stores result of the assertion predicate.
   bool success_;
+  bool nested_failure_;
   // Stores the message describing the condition in case the expectation
   // construct is not satisfied with the predicate's outcome.
   // Referenced via a pointer to avoid taking too much stack frame space
@@ -344,6 +345,8 @@ GTEST_API_ AssertionResult AssertionFailure();
 // Makes a failed assertion result with the given failure message.
 // Deprecated; use AssertionFailure() << msg.
 GTEST_API_ AssertionResult AssertionFailure(const Message& msg);
+
+GTEST_API_ AssertionResult AssertionNestedFailure();
 
 // The abstract class that all tests inherit from.
 //
@@ -1366,15 +1369,15 @@ GTEST_API_ void InitGoogleTest(int* argc, char** argv);
 // UNICODE mode.
 GTEST_API_ void InitGoogleTest(int* argc, wchar_t** argv);
 
-struct fail_t {};
-static fail_t TestFailed;
+struct FailedTestType {};
+static FailedTestType TestFailed;
 
 template<typename T>
 class GTestFailedOr {
 public:
     GTestFailedOr(const T& value) : user_value_(value), success_(true){}
-    GTestFailedOr() : user_value_(*reinterpret_cast<const T*>(NULL)), success_(false){}
-    GTestFailedOr(fail_t) : user_value_(*reinterpret_cast<const T*>(NULL)), success_(false){}
+    GTestFailedOr() : success_(false){}
+    GTestFailedOr(FailedTestType) : success_(false){}
     bool isOk() const { return success_; }
     operator const T&() const { return user_value_; }
 private:
@@ -1427,9 +1430,6 @@ const T& Unwrap(const GTestFailedOr<T>& v) { return (const T&)v; }
             return AssertionFailure() << "Previous nested failure.";\
         }\
     } while(false)
-
-
-namespace internal {
 
 // Separate the error generating code from the code path to reduce the stack
 // frame size of CmpHelperEQ. This helps reduce the overhead of some sanitizers
